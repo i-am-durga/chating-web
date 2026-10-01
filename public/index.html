@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberChat - Real-Time Chat & Video Calling</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="auth-container">
+    <div class="auth-card">
+      <div class="brand-header">
+        <div class="brand-icon">💬</div>
+        <h1>CyberChat</h1>
+        <p>Real-time encrypted messaging &amp; P2P video calls</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button id="tab-login" class="tab-btn active" onclick="switchAuthTab('login')">Sign In</button>
+        <button id="tab-register" class="tab-btn" onclick="switchAuthTab('register')">Create Account</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form" onsubmit="handleLogin(event)">
+        <div class="input-group">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" placeholder="Enter your username" required autocomplete="username">
+        </div>
+        <div class="input-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password">
+        </div>
+        <div id="login-error" class="error-msg"></div>
+        <button type="submit" id="btn-login-submit" class="primary-btn">Sign In to Chat</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="auth-form hidden" onsubmit="handleRegister(event)">
+        <div class="input-group">
+          <label for="reg-username">Username</label>
+          <input type="text" id="reg-username" placeholder="Choose a unique username" required autocomplete="username">
+        </div>
+        <div class="input-group">
+          <label for="reg-password">Password</label>
+          <input type="password" id="reg-password" placeholder="Create a strong password" required autocomplete="new-password">
+        </div>
+        <div class="input-group">
+          <label for="reg-gender">Gender</label>
+          <select id="reg-gender" required>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label for="reg-avatar">Profile Avatar URL (Optional)</label>
+          <input type="url" id="reg-avatar" placeholder="https://example.com/avatar.jpg">
+        </div>
+        <div id="register-error" class="error-msg"></div>
+        <button type="submit" id="btn-register-submit" class="primary-btn">Create Account</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Chat Screen -->
+  <div id="chat-screen" class="chat-container hidden">
+    <!-- Sidebar -->
+    <aside class="chat-sidebar">
+      <div class="sidebar-header">
+        <div class="user-profile-badge">
+          <img id="current-user-avatar" src="" alt="Avatar" class="avatar-sm">
+          <div class="user-meta">
+            <span id="current-user-name" class="font-bold"></span>
+            <span class="status-online"><span class="dot"></span> Online</span>
+          </div>
+        </div>
+        <button id="btn-logout" class="icon-btn" title="Sign Out" onclick="handleLogout()">🚪</button>
+      </div>
+
+      <div class="users-section">
+        <div class="section-title">
+          <span>Active Users</span>
+          <span id="online-count" class="badge">0</span>
+        </div>
+        <ul id="user-list" class="user-list">
+          <!-- Populated dynamically -->
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Chat Area -->
+    <main class="chat-main">
+      <!-- Chat Header -->
+      <header class="chat-header">
+        <div class="channel-info">
+          <h2>🌐 Global Lobby</h2>
+          <p id="channel-status">Real-time room with active peers</p>
+        </div>
+      </header>
+
+      <!-- Message History -->
+      <div id="messages-container" class="messages-container">
+        <!-- Messages rendered dynamically -->
+      </div>
+
+      <!-- Message Input Form -->
+      <footer class="chat-footer">
+        <form id="message-form" class="message-form" onsubmit="handleSendMessage(event)">
+          <label for="image-upload" class="icon-btn-attach" title="Attach Image">
+            📎
+            <input type="file" id="image-upload" accept="image/*" class="hidden-file-input" onchange="handleImageSelect(event)">
+          </label>
+          <div id="image-preview-container" class="image-preview-container hidden">
+            <img id="image-preview" src="" alt="Selected image">
+            <button type="button" class="btn-remove-img" onclick="clearSelectedImage()">✕</button>
+          </div>
+          <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+          <button type="submit" id="btn-send" class="send-btn">
+            <span>Send</span> 🚀
+          </button>
+        </form>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Incoming Call Modal -->
+  <div id="incoming-call-modal" class="modal-backdrop hidden">
+    <div class="call-dialog">
+      <div class="calling-animation">
+        <img id="caller-avatar" src="" alt="Caller" class="avatar-lg pulse">
+      </div>
+      <h3 id="caller-name">Incoming Video Call...</h3>
+      <p>Someone wants to connect with you</p>
+      <div class="call-actions">
+        <button id="btn-accept-call" class="call-btn btn-accept" onclick="acceptIncomingCall()">📞 Accept</button>
+        <button id="btn-decline-call" class="call-btn btn-decline" onclick="declineIncomingCall()">✖ Decline</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Video Call Screen -->
+  <div id="video-call-screen" class="video-overlay hidden">
+    <div class="video-grid">
+      <div class="video-tile remote-tile">
+        <video id="remote-video" autoplay playsinline></video>
+        <span class="video-label" id="remote-user-label">Peer</span>
+      </div>
+      <div class="video-tile local-tile">
+        <video id="local-video" autoplay playsinline muted></video>
+        <span class="video-label">You</span>
+      </div>
+    </div>
+    <div class="video-controls">
+      <button id="btn-toggle-mic" class="control-btn" onclick="toggleMic()">🎤 Mute</button>
+      <button id="btn-toggle-cam" class="control-btn" onclick="toggleCam()">📹 Camera</button>
+      <button id="btn-end-call" class="control-btn btn-end" onclick="endCall()">🛑 End Call</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
